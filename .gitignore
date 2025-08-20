@@ -1,0 +1,32 @@
+# macOS system files
+.DS_Store
+
+# Node modules and dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Environment files
+.env
+
+# VS Code and JetBrains IDE settings
+.vscode/
+.idea/
+
+# Backup files
+*~
+*.bak
+
+# Google Apps Script clasp files (local settings)
+.clasp.json
+
+# Ignore build output (if any)
+dist/
+build/
+
+# Ignore documentation and journals
+*.md
+
+# Ignore other system files
+Thumbs.db

@@ -1,0 +1,32 @@
+# Ignore macOS system files
+.DS_Store
+
+# Ignore markdown and documentation
+*.md
+
+# Ignore HTML files not used as templates (if any)
+# Uncomment and edit as needed
+#*.html
+
+# Ignore node_modules and dependencies
+node_modules/
+
+# Ignore log files
+*.log
+
+# Ignore local environment files
+.env
+
+# Ignore clasp settings (if you want to keep them local)
+.clasp.json
+
+# Ignore other common files
+Thumbs.db
+
+# Ignore backup files
+*~
+*.bak
+
+# Ignore workspace settings
+.vscode/
+.idea/
