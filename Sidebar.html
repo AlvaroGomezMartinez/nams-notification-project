@@ -63,7 +63,14 @@
       </div>
     </div>
     <script>
-      function showCustomModal(message, onYes, onNo) {
+  /**
+   * Show a custom confirmation modal.
+   * @param {string} message - Message to display inside the modal.
+   * @param {Function} [onYes] - Callback executed when the user confirms.
+   * @param {Function} [onNo] - Callback executed when the user cancels.
+   * @return {void}
+   */
+  function showCustomModal(message, onYes, onNo) {
         var modal = document.getElementById('customModal');
         var msg = document.getElementById('modalMessage');
         msg.textContent = message;
@@ -78,7 +85,16 @@
         };
       }
 
-      function logUsage(action, forceLog) {
+  /**
+   * Submit a restroom usage event to the server-side Apps Script function `logRestroomUsage`.
+   * Reads values from the form (`studentId`, `gb`, `period`) and updates UI elements
+   * such as the spinner and notification area based on the server response.
+   *
+   * @param {'Out'|'Back'} action - The action being logged.
+   * @param {boolean} [forceLog] - When true, bypasses client-side confirmation checks.
+   * @return {void}
+   */
+  function logUsage(action, forceLog) {
         var studentId = document.getElementById('studentId').value;
         var gb = document.getElementById('gb').value;
         var period = document.getElementById('period').value;
