@@ -157,7 +157,7 @@ function onOpen() {
  */
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile("Sidebar")
-    .setTitle("NAMS")
+    .setTitle("Northside Alternative Middle School")
     .setWidth(350);
   SpreadsheetApp.getUi().showSidebar(html);
 }
@@ -415,6 +415,29 @@ function logRestroomUsage(data) {
           lastRow,
           nowTime
         );
+        // If a Period was provided, set it in column 8 if empty
+        try {
+          var periodValueBack = (data.period || "").toString();
+          if (periodValueBack !== "") {
+            var existingPeriod = (logSheet.getRange(lastRow, 8).getValue() || "").toString();
+            if (!existingPeriod) {
+              logSheet.getRange(lastRow, 8).setValue(periodValueBack);
+            }
+          }
+        } catch (pe) {
+          // ignore period write errors
+        }
+        // If notes were provided, append them to column 9 (Notes)
+        try {
+          var notesToAdd = (data.notes || "").toString();
+          if (notesToAdd !== "") {
+            var existingNotes = (logSheet.getRange(lastRow, 9).getValue() || "").toString();
+            var newNotes = existingNotes ? existingNotes + ' | ' + notesToAdd : notesToAdd;
+            logSheet.getRange(lastRow, 9).setValue(newNotes);
+          }
+        } catch (ne) {
+          // ignore notes write errors
+        }
       } else {
         // Fallback: if no matching row in the current sheet, search the other
         // AM/PM sheet for the most recent matching Out (Time Out present and Time Back empty)
@@ -439,18 +462,23 @@ function logRestroomUsage(data) {
           }
           if (foundRow) {
               otherSheet.getRange(foundRow, 7).setValue(nowTime);
-              // Also set Notes (col 8) and Period (col 9) if provided
+              // If Period/Notes provided, write them (append Notes)
               try {
                 var periodValueFallback = (data.period || "").toString();
                 var notesValueFallback = (data.notes || "").toString();
                 if (periodValueFallback !== "") {
-                  otherSheet.getRange(foundRow, 8).setValue(periodValueFallback);
+                  var existingPeriodOther = (otherSheet.getRange(foundRow, 8).getValue() || "").toString();
+                  if (!existingPeriodOther) {
+                    otherSheet.getRange(foundRow, 8).setValue(periodValueFallback);
+                  }
                 }
                 if (notesValueFallback !== "") {
-                  otherSheet.getRange(foundRow, 9).setValue(notesValueFallback);
+                  var existingNotesOther = (otherSheet.getRange(foundRow, 9).getValue() || "").toString();
+                  var newNotesOther = existingNotesOther ? existingNotesOther + ' | ' + notesValueFallback : notesValueFallback;
+                  otherSheet.getRange(foundRow, 9).setValue(newNotesOther);
                 }
               } catch (pe) {
-                // ignore period write errors
+                // ignore write errors
               }
             Logger.log(
               "Fallback: Updated Back time in %s at row %s with %s",
