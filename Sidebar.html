@@ -6,7 +6,22 @@
       body { font-family: Arial, sans-serif; margin: 16px; }
       label { display: block; margin-top: 12px; }
       input, select, button { margin-top: 4px; width: 100%; padding: 6px; }
-      #notification { color: red; font-weight: bold; margin-top: 12px; }
+  #notification { color: red; font-weight: bold; margin-top: 12px; transition: color 0.2s; }
+        /* Spinner styles */
+        .spinner {
+          display: none;
+          margin: 16px auto;
+          border: 4px solid #f3f3f3;
+          border-top: 4px solid #3498db;
+          border-radius: 50%;
+          width: 32px;
+          height: 32px;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
     </style>
   </head>
   <body>
@@ -38,22 +53,112 @@
   <button type="button" onclick="logUsage('Back')">Back</button>
     </form>
     <div id="notification"></div>
+    <div id="spinner" class="spinner"></div>
+    <div id="customModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#fff; padding:24px 20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.2); max-width:320px; margin:auto; text-align:center;">
+        <h3 style="margin-top:0;">Confirmation</h3>
+        <div id="modalMessage" style="margin-bottom:18px;"></div>
+        <button id="modalYes" style="background:#388e3c; color:#fff; border:none; padding:8px 18px; border-radius:4px; margin-right:10px;">Yes</button>
+        <button id="modalNo" style="background:#b71c1c; color:#fff; border:none; padding:8px 18px; border-radius:4px;">No</button>
+      </div>
+    </div>
     <script>
-      function logUsage(action) {
+      function showCustomModal(message, onYes, onNo) {
+        var modal = document.getElementById('customModal');
+        var msg = document.getElementById('modalMessage');
+        msg.textContent = message;
+        modal.style.display = 'flex';
+        document.getElementById('modalYes').onclick = function() {
+          modal.style.display = 'none';
+          if (onYes) onYes();
+        };
+        document.getElementById('modalNo').onclick = function() {
+          modal.style.display = 'none';
+          if (onNo) onNo();
+        };
+      }
+
+      function logUsage(action, forceLog) {
         var studentId = document.getElementById('studentId').value;
         var gb = document.getElementById('gb').value;
         var period = document.getElementById('period').value;
         var note = document.getElementById('notification');
+        var spinner = document.getElementById('spinner');
         if (!studentId || !period || !gb) return;
-        google.script.run.withSuccessHandler(function(result) {
+        spinner.style.display = 'block';
+        console.log('Calling logRestroomUsage with', { studentId: studentId, period: period, gb: gb, action: action, forceLog: !!forceLog });
+        google.script.run
+          .withSuccessHandler(function(result) {
+          console.log('logRestroomUsage result', result);
+          var shouldClear = false;
           if (result && result.error) {
             note.textContent = result.error;
-          } else if (action === 'Out' && result && result.count >= 2) {
-            note.textContent = 'Alert: This student has already used the restroom twice today!';
+            note.style.color = 'red';
+          } else if (action === 'Out') {
+            // If the server requires a confirmation (this would be the 3rd Out), show the modal and do not append yet
+            if (result && result.confirmationNeeded && !forceLog) {
+              note.textContent = '⛔️ Alert: ' + (result.studentName ? result.studentName : 'This student') + ' has already used the restroom twice during this half of the day.';
+              note.style.color = 'red';
+              spinner.style.display = 'none';
+              showCustomModal('This student has already used the restroom twice during this half of the day! Would you like to log this anyway?',
+                function() { logUsage(action, true); },
+                function() {
+                  // Reset the whole form, clear notification and spinner when user cancels
+                  try { document.getElementById('restroomForm').reset(); } catch (e) {}
+                  note.textContent = '';
+                  spinner.style.display = 'none';
+                  // Return focus to the Student ID field for quick retry
+                  try { document.getElementById('studentId').focus(); } catch (e) {}
+                });
+              return;
+            }
+            // If server appended the row (either normally or via force), show success
+            if (result && result.appended) {
+              var newCount = (typeof result.countAfter === 'number' ? result.countAfter : (typeof result.countBefore === 'number' ? result.countBefore + 1 : 1));
+              note.textContent = '✅ ' + result.studentName + ' was added to the ' + result.logSheetName + ' log.';
+              note.style.color = 'green';
+              // If the new total is 3 or more, show an additional warning
+              if (newCount >= 3) {
+                note.textContent += '\n⚠️ Warning: ' + result.studentName + ' has now logged out ' + newCount + ' times this ' + result.logSheetName + ' today.';
+                note.style.color = 'orange';
+              }
+              shouldClear = true;
+            } else {
+              // Not appended (e.g., limit reached and not forced) — show informative message
+              if (result && result.studentName && !result.appended) {
+                // If countBefore is already >=3, surface a stronger warning
+                if (result.countBefore >= 3) {
+                  note.textContent = '⚠️ Alert: ' + result.studentName + ' has already logged out ' + result.countBefore + ' times this ' + result.logSheetName + '.';
+                  note.style.color = 'red';
+                } else {
+                  note.textContent = 'Notice: ' + result.studentName + ' was not logged (limit reached). Use the modal to force logging.';
+                  note.style.color = 'orange';
+                }
+              }
+            }
+          } else if (action === 'Back' && result && result.studentName) {
+            note.textContent = '✅ ' + result.studentName + ' was marked as Back.';
+            note.style.color = 'green';
+            shouldClear = true;
           } else {
             note.textContent = '';
+            note.style.color = 'red';
           }
-        }).logRestroomUsage({studentId: studentId, period: period, gb: gb, action: action});
+          spinner.style.display = 'none';
+          if (shouldClear) {
+            setTimeout(function() {
+              note.textContent = '';
+              document.getElementById('restroomForm').reset();
+            }, 3000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          console.error('logRestroomUsage failed', err);
+          spinner.style.display = 'none';
+          note.textContent = 'Error: ' + (err && err.message ? err.message : JSON.stringify(err));
+          note.style.color = 'red';
+        })
+        .logRestroomUsage({studentId: studentId, period: period, gb: gb, action: action, forceLog: !!forceLog});
       }
     </script>
   </body>
