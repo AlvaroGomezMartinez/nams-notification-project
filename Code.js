@@ -303,7 +303,12 @@ function logRestroomUsage(data) {
 
     // Get student name from the current day's sheet, column A (from the same row it found the ID in)
     var studentName = daySheet.getRange(3 + studentRow, 1).getValue();
-    Logger.log("Found studentName: %s at row %s", studentName, 3 + studentRow);
+    // Normalize studentName to avoid mismatches due to extra whitespace or case
+    var normalize = function(s) {
+      return String(s || "").trim().toLowerCase();
+    };
+    var studentNameNorm = normalize(studentName);
+    Logger.log("Found studentName: %s (normalized: %s) at row %s", studentName, studentNameNorm, 3 + studentRow);
 
     // Determine whether to add the information in the AM or PM sheet
     var logSheetName = hour < 12 ? "AM" : "PM";
@@ -343,16 +348,32 @@ function logRestroomUsage(data) {
     // Get current rows in log sheet and initialize lastRow
     var rows = logSheet.getDataRange().getValues();
     var lastRow = null;
+    // Try to find the most recent matching row in the current AM/PM log.
+    // First attempt: strict match including teacher. If not found, fallback to match ignoring teacher
     for (var i = rows.length - 1; i > 0; i--) {
       // Indices: 0=Date, 1=Student, 2=ID, 3=Gender, 4=Teacher, 5=Time Out, 6=Time Back
       if (
-        String(rows[i][1]).trim() === studentName &&
+        normalize(rows[i][1]) === studentNameNorm &&
         String(rows[i][2]).trim() === studentId &&
         String(rows[i][3]).trim() === gb &&
-        String(rows[i][4]).trim() === teacherName
+        normalize(rows[i][4]) === normalize(teacherName)
       ) {
         lastRow = i + 1;
         break;
+      }
+    }
+    // If we didn't find an exact match (including teacher), try again ignoring teacher differences
+    if (!lastRow) {
+      for (var i = rows.length - 1; i > 0; i--) {
+        if (
+          normalize(rows[i][1]) === studentNameNorm &&
+          String(rows[i][2]).trim() === studentId &&
+          String(rows[i][3]).trim() === gb
+        ) {
+          lastRow = i + 1;
+          Logger.log("Matched row ignoring teacher name differences at row %s (sheet %s)", lastRow, logSheet.getName());
+          break;
+        }
       }
     }
     // Count restroom usage for student today (based on Time Out present)
@@ -375,10 +396,15 @@ function logRestroomUsage(data) {
     );
 
     // We'll return the count before appending so the client can decide whether to warn.
-    var appended = false;
-    var confirmationNeeded = false;
-    var countBefore = count;
-    var countAfter = count;
+  var appended = false;
+  var confirmationNeeded = false;
+  var countBefore = count;
+  var countAfter = count;
+  // Diagnostics for Back updates
+  var backUpdated = false;
+  var updatedSheetName = null;
+  var updatedRow = null;
+  var fallbackAttempted = false;
     if (action === "Out") {
       // If this would be the 3rd Out (countBefore >= 2) and the client didn't force it,
       // require confirmation and DO NOT append on the server side.
@@ -420,6 +446,9 @@ function logRestroomUsage(data) {
       // Attempt to update Back time in the current AM/PM log (column 7: Back)
       if (lastRow) {
         logSheet.getRange(lastRow, 7).setValue(nowTime);
+        backUpdated = true;
+        updatedSheetName = logSheet.getName();
+        updatedRow = lastRow;
         Logger.log(
           "Updated Back time in %s at row %s with %s",
           logSheet.getName(),
@@ -455,15 +484,16 @@ function logRestroomUsage(data) {
         var otherSheetName = logSheetName === "AM" ? "PM" : "AM";
         var otherSheet = ss.getSheetByName(otherSheetName);
         if (otherSheet) {
+          fallbackAttempted = true;
           var otherRows = otherSheet.getDataRange().getValues();
           var foundRow = null;
           // iterate from bottom to top to find the most recent matching Out with empty Back
           for (var j = otherRows.length - 1; j > 0; j--) {
             if (
-              String(otherRows[j][1]).trim() === studentName &&
+              normalize(otherRows[j][1]) === studentNameNorm &&
               String(otherRows[j][2]).trim() === studentId &&
               String(otherRows[j][3]).trim() === gb &&
-              String(otherRows[j][4]).trim() === teacherName &&
+              normalize(otherRows[j][4]) === normalize(teacherName) &&
               otherRows[j][5] && // Time Out present
               !otherRows[j][6] // Time Back empty
             ) {
@@ -471,8 +501,27 @@ function logRestroomUsage(data) {
               break;
             }
           }
-          if (foundRow) {
-              otherSheet.getRange(foundRow, 7).setValue(nowTime);
+          // If not found with teacher match, try again ignoring teacher
+          if (!foundRow) {
+            for (var j = otherRows.length - 1; j > 0; j--) {
+              if (
+                normalize(otherRows[j][1]) === studentNameNorm &&
+                String(otherRows[j][2]).trim() === studentId &&
+                String(otherRows[j][3]).trim() === gb &&
+                otherRows[j][5] && // Time Out present
+                !otherRows[j][6] // Time Back empty
+              ) {
+                foundRow = j + 1;
+                Logger.log("Fallback matched row in %s ignoring teacher name differences at row %s", otherSheetName, foundRow);
+                break;
+              }
+            }
+          }
+      if (foundRow) {
+        otherSheet.getRange(foundRow, 7).setValue(nowTime);
+        backUpdated = true;
+        updatedSheetName = otherSheetName;
+        updatedRow = foundRow;
               // If Period/Notes provided, write them (append Notes)
               try {
                 var periodValueFallback = (data.period || "").toString();
@@ -521,6 +570,11 @@ function logRestroomUsage(data) {
       studentName: studentName,
       logSheetName: logSheetName,
       appended: appended,
+      // Back update diagnostics
+      backUpdated: backUpdated,
+      updatedSheetName: updatedSheetName,
+      updatedRow: updatedRow,
+      fallbackAttempted: fallbackAttempted,
     };
   } catch (e) {
     // Log the full error to the Apps Script execution log and return an error message to the client
