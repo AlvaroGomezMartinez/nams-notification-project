@@ -26,6 +26,9 @@
   </head>
   <body>
     <h2>Restroom Log</h2>
+    <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+      <button type="button" id="helpButton" style="width:auto; padding:6px 12px;">Help</button>
+    </div>
     <form id="restroomForm">
       <label>Student ID
         <input type="text" id="studentId" required>
@@ -63,6 +66,44 @@
         <div id="modalMessage" style="margin-bottom:18px;"></div>
         <button id="modalYes" style="background:#388e3c; color:#fff; border:none; padding:8px 18px; border-radius:4px; margin-right:10px;">Yes</button>
         <button id="modalNo" style="background:#b71c1c; color:#fff; border:none; padding:8px 18px; border-radius:4px;">No</button>
+      </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4); z-index:1100; align-items:center; justify-content:center;">
+      <div style="background:#fff; padding:20px 18px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.25); max-width:520px; width:92%; max-height:80vh; overflow:auto; margin:auto;">
+        <h2 style="margin-top:0;">Restroom Log - Help</h2>
+        <div style="font-size:13px; line-height:1.4; color:#222;">
+          <h3 style="margin-bottom:6px;">Using the Sidebar</h3>
+          <ol>
+            <li>Enter the Student ID exactly as shown on the daily roster (column E on the day sheet). If the ID is not found you will receive an error.</li>
+            <li>Select the student's Gender (G or B) and the current class Period.</li>
+            <li>Optional: add any Notes that explain the reason or context.</li>
+            <li>Click <strong>Out</strong> to log the student leaving. Click <strong>Back</strong> to mark them as returned.</li>
+            <li>If a student has already used the restroom twice in the AM or PM, the sidebar will warn you and ask for confirmation before logging a third Out. Use the confirmation dialog to force the entry if appropriate.</li>
+          </ol>
+
+          <h3 style="margin-bottom:6px;">Archiving Data (Move AM/PM logs to Database)</h3>
+          <ol>
+            <li>From the Google Sheets menu choose <em>Restroom Log &gt; Move current AM/PM logs to Database</em>. This action will:</li>
+            <ul>
+              <li>Copy all non-empty rows from the AM and PM sheets (excluding their header rows) into the <code>Database</code> sheet.</li>
+              <li>If the <code>Database</code> sheet does not exist it will be created with headers.</li>
+              <li>After copying, the AM and PM sheets will be cleared (rows below the header will be removed).</li>
+            </ul>
+            <li>Make sure you only archive when you are ready to permanently move that day's AM/PM log rows to the database. Consider making a copy of the spreadsheet before major operations if you need a backup.</li>
+          </ol>
+
+          <h3 style="margin-bottom:6px;">Tips & Troubleshooting</h3>
+          <ul>
+            <li>If you see "Student ID not found", verify the ID in the day sheet (column E, starting row 3) or check that the correct day sheet is visible and not hidden.</li>
+            <li>Use the <strong>Log Students</strong> menu item to reopen the sidebar if it is closed.</li>
+            <li>If the script reports permissions errors, ensure you have authorized the Apps Script project to access the sheet and your email (first-time authorization required).</li>
+          </ul>
+        </div>
+        <div style="text-align:right; margin-top:12px;">
+          <button id="closeHelp" style="padding:8px 12px; border-radius:4px; border:none; background:#1976d2; color:#fff;">Close</button>
+        </div>
       </div>
     </div>
     <script>
@@ -180,6 +221,30 @@
         })
       .logRestroomUsage({studentId: studentId, period: period, gb: gb, notes: notes, action: action, forceLog: !!forceLog});
       }
+    
+      // Help modal handlers
+      (function() {
+        function $(id) { return document.getElementById(id); }
+        var helpButton = $('helpButton');
+        var helpModal = $('helpModal');
+        var closeHelp = $('closeHelp');
+        if (helpButton && helpModal) {
+          helpButton.addEventListener('click', function() {
+            helpModal.style.display = 'flex';
+            // scroll top of modal content
+            try { helpModal.querySelector('div').scrollTop = 0; } catch (e) {}
+          });
+        }
+        if (closeHelp && helpModal) {
+          closeHelp.addEventListener('click', function() { helpModal.style.display = 'none'; });
+        }
+        // Clicking outside modal content closes it
+        if (helpModal) {
+          helpModal.addEventListener('click', function(e) {
+            if (e.target === helpModal) helpModal.style.display = 'none';
+          });
+        }
+      })();
     </script>
   </body>
 </html>
