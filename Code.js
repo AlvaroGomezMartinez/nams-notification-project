@@ -147,7 +147,18 @@ function onOpen() {
     .createMenu("Restroom Log")
     .addItem("Log Students", "showSidebar")
     .addItem("Move current AM/PM logs to Database", "archiveAndClearLogs")
+    .addItem("Help", "showHelpDialog")
     .addToUi();
+}
+
+/**
+ * Show a modal Help dialog using the Help.html file.
+ */
+function showHelpDialog() {
+  var html = HtmlService.createHtmlOutputFromFile('Help')
+    .setWidth(520)
+    .setHeight(560);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Restroom Log Help');
 }
 
 /**

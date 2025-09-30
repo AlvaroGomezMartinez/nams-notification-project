@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding:18px; color:#222; }
+      h2 { margin-top:0; }
+      button { padding:8px 12px; border-radius:4px; border:none; background:#1976d2; color:#fff; }
+    </style>
+  </head>
+  <body>
+    <h2>Restroom Log - Help</h2>
+    <div style="font-size:13px; line-height:1.4;">
+      <h3>Using the Sidebar</h3>
+      <ol>
+        <li>Enter the Student ID exactly as shown on the daily roster (column E on the day sheet). If the ID is not found you will receive an error.</li>
+        <li>Select the student's Gender (G or B) and the current class Period.</li>
+        <li>Optional: add any Notes that explain the reason or context.</li>
+        <li>Click <strong>Out</strong> to log the student leaving. Click <strong>Back</strong> to mark them as returned.</li>
+        <li>If a student has already used the restroom twice in the AM or PM, the sidebar will warn you and ask for confirmation before logging a third Out. Use the confirmation dialog to force the entry if appropriate.</li>
+      </ol>
+
+      <h3>Archiving Data (Move AM/PM logs to Database)</h3>
+      <ol>
+        <li>From the Google Sheets menu choose <em>Restroom Log &gt; Move current AM/PM logs to Database</em>. This action will:</li>
+        <ul>
+          <li>Copy all non-empty rows from the AM and PM sheets (excluding their header rows) into the <code>Database</code> sheet.</li>
+          <li>If the <code>Database</code> sheet does not exist it will be created with headers.</li>
+          <li>After copying, the AM and PM sheets will be cleared (rows below the header will be removed).</li>
+        </ul>
+        <li>Make sure you only archive when you are ready to permanently move that day's AM/PM log rows to the database. Consider making a copy of the spreadsheet before major operations if you need a backup.</li>
+      </ol>
+
+      <h3>Tips & Troubleshooting</h3>
+      <ul>
+        <li>If you see "Student ID not found", verify the ID in the day sheet (column E, starting row 3) or check that the correct day sheet is visible and not hidden.</li>
+        <li>Use the <strong>Log Students</strong> menu item to reopen the sidebar if it is closed.</li>
+        <li>If the script reports permissions errors, ensure you have authorized the Apps Script project to access the sheet and your email (first-time authorization required).</li>
+      </ul>
+    </div>
+    <div style="text-align:right; margin-top:12px;">
+      <button onclick="google.script.host.close()">Close</button>
+    </div>
+  </body>
+</html>
