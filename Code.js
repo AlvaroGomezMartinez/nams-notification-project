@@ -45,6 +45,8 @@ function archiveAndClearLogs() {
       "Teacher",
       "Time Out",
       "Time Back",
+      "Period",
+      "Notes",
     ]);
   }
   var logSheetNames = ["AM", "PM"];
@@ -305,15 +307,26 @@ function logRestroomUsage(data) {
         "Teacher",
         "Time Out",
         "Time Back",
+        "Period",
+        "Notes",
       ]);
     }
     // Ensure header has Date column
     var logHeaders = logSheet
-      .getRange(1, 1, 1, logSheet.getLastColumn())
+      .getRange(1, 1, 1, Math.max(7, logSheet.getLastColumn()))
       .getValues()[0];
     if (logHeaders[0] !== "Date") {
       logSheet.insertColumnBefore(1);
       logSheet.getRange(1, 1).setValue("Date");
+    }
+    // Ensure Period header exists at column 8 (H) and Notes is at column 9 (I)
+    if (logSheet.getLastColumn() < 9 || logSheet.getRange(1, 8).getValue() !== "Period" || logSheet.getRange(1, 9).getValue() !== "Notes") {
+      // Ensure we have at least 9 columns
+      while (logSheet.getLastColumn() < 9) {
+        logSheet.insertColumnAfter(logSheet.getLastColumn());
+      }
+      logSheet.getRange(1, 8).setValue("Period");
+      logSheet.getRange(1, 9).setValue("Notes");
     }
 
     // Get current rows in log sheet and initialize lastRow
@@ -368,6 +381,10 @@ function logRestroomUsage(data) {
         );
       } else {
         // Only append if under limit or forced
+        // Period may be provided in data.period; default to empty string
+        var periodValue = (data.period || "").toString();
+        var notesValue = (data.notes || "").toString();
+        // Columns now: Date, Student, ID, Gender, Teacher, Time Out, Time Back, Period (H), Notes (I)
         var newRow = [
           today,
           studentName,
@@ -376,6 +393,8 @@ function logRestroomUsage(data) {
           teacherName,
           nowTime,
           "",
+          periodValue,
+          notesValue,
         ];
         logSheet.appendRow(newRow);
         appended = true;
@@ -419,7 +438,20 @@ function logRestroomUsage(data) {
             }
           }
           if (foundRow) {
-            otherSheet.getRange(foundRow, 7).setValue(nowTime);
+              otherSheet.getRange(foundRow, 7).setValue(nowTime);
+              // Also set Notes (col 8) and Period (col 9) if provided
+              try {
+                var periodValueFallback = (data.period || "").toString();
+                var notesValueFallback = (data.notes || "").toString();
+                if (periodValueFallback !== "") {
+                  otherSheet.getRange(foundRow, 8).setValue(periodValueFallback);
+                }
+                if (notesValueFallback !== "") {
+                  otherSheet.getRange(foundRow, 9).setValue(notesValueFallback);
+                }
+              } catch (pe) {
+                // ignore period write errors
+              }
             Logger.log(
               "Fallback: Updated Back time in %s at row %s with %s",
               otherSheetName,

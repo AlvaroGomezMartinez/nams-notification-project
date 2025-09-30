@@ -49,6 +49,9 @@
           <option value="8">8th</option>
         </select>
       </label>
+      <label>Notes
+        <textarea id="notes" rows="3" style="width:100%; padding:6px; margin-top:4px;" placeholder="Optional notes..."></textarea>
+      </label>
   <button type="button" onclick="logUsage('Out')">Out</button>
   <button type="button" onclick="logUsage('Back')">Back</button>
     </form>
@@ -102,7 +105,8 @@
         var spinner = document.getElementById('spinner');
         if (!studentId || !period || !gb) return;
         spinner.style.display = 'block';
-        console.log('Calling logRestroomUsage with', { studentId: studentId, period: period, gb: gb, action: action, forceLog: !!forceLog });
+        var notes = document.getElementById('notes').value;
+        console.log('Calling logRestroomUsage with', { studentId: studentId, period: period, gb: gb, notes: notes, action: action, forceLog: !!forceLog });
         google.script.run
           .withSuccessHandler(function(result) {
           console.log('logRestroomUsage result', result);
@@ -174,7 +178,7 @@
           note.textContent = 'Error: ' + (err && err.message ? err.message : JSON.stringify(err));
           note.style.color = 'red';
         })
-        .logRestroomUsage({studentId: studentId, period: period, gb: gb, action: action, forceLog: !!forceLog});
+      .logRestroomUsage({studentId: studentId, period: period, gb: gb, notes: notes, action: action, forceLog: !!forceLog});
       }
     </script>
   </body>
