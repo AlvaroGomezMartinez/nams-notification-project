@@ -1,4 +1,30 @@
 /**
+ * NAMS NOTIFICATION PROJECT (Restroom Log)
+ * 
+ * This project logs student restroom usage and manages the associated data.
+ * It provides a user interface for logging restroom visits and a backend for data storage and retrieval.
+ * The system aims to streamline the process of tracking student movements and ensuring their safety.
+ * 
+ * Key Features:
+ * - Log student restroom usage with time stamps.
+ * - Differentiate between AM and PM logs.
+ * - Archive logs into a central database for record-keeping.
+ * - Provide a user-friendly sidebar interface for teachers to log entries.
+ * - Ensure data integrity by validating student IDs against a daily tracking list.
+ * - Notify teachers when a student has exceeded a predefined number of restroom visits (2 times in AM or PM).
+ * - Customizable teacher identification based on email.
+ * - Error handling and logging for debugging and maintenance.
+ * - Menu integration within Google Sheets for easy access to functionalities (log students and archive data).
+ * - Diagnostic tools to inspect and verify sheet configurations.
+ * - Designed for use within Google Sheets using Google Apps Script.
+ * - Timezone-aware date and time handling.
+ * 
+ * @author Alvaro Gomez, Academic Technology Coach, 210-397-9408
+ * @version 1.0, 2025-09-30
+ */
+
+
+/**
  * Moves all rows from the AM and PM log sheets into the `Database` sheet and clears the logs.
  * If the `Database` sheet does not exist it will be created with a header row.
  * This function preserves header rows in the AM/PM sheets and only transfers non-empty rows.
@@ -117,7 +143,7 @@ function diagnoseSheets() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Restroom Log")
-    .addItem("Open Restroom Log", "showSidebar")
+    .addItem("Log Students", "showSidebar")
     .addItem("Move current AM/PM logs to Database", "archiveAndClearLogs")
     .addToUi();
 }
