@@ -11,7 +11,7 @@
  * - Archive logs into a central database for record-keeping.
  * - Provide a user-friendly sidebar interface for teachers to log entries.
  * - Ensure data integrity by validating student IDs against a daily tracking list.
- * - Notify teachers when a student has exceeded a predefined number of restroom visits (2 times in AM or PM).
+ * - Notify teachers when a student has exceeded a predefined number of restroom visits (1 time in AM or PM).
  * - Customizable teacher identification based on email.
  * - Error handling and logging for debugging and maintenance.
  * - Menu integration within Google Sheets for easy access to functionalities (log students and archive data).
@@ -20,7 +20,7 @@
  * - Timezone-aware date and time handling.
  * 
  * @author Alvaro Gomez, Academic Technology Coach, 210-397-9408
- * @version 1.0, 2025-09-30
+ * @version 1.0.1, 2025-10-06
  */
 
 
@@ -406,9 +406,9 @@ function logRestroomUsage(data) {
   var updatedRow = null;
   var fallbackAttempted = false;
     if (action === "Out") {
-      // If this would be the 3rd Out (countBefore >= 2) and the client didn't force it,
+      // If this would be the 2nd Out (countBefore >= 1) and the client didn't force it,
       // require confirmation and DO NOT append on the server side.
-      if (countBefore >= 2 && !forceLog) {
+      if (countBefore >= 1 && !forceLog) {
         confirmationNeeded = true;
         appended = false;
         Logger.log(

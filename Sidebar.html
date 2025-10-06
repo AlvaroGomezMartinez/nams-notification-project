@@ -118,12 +118,12 @@
             note.textContent = result.error;
             note.style.color = 'red';
           } else if (action === 'Out') {
-            // If the server requires a confirmation (this would be the 3rd Out), show the modal and do not append yet
+            // If the server requires a confirmation (this would be the 2nd Out), show the modal and do not append yet
             if (result && result.confirmationNeeded && !forceLog) {
-              note.textContent = '⛔️ Alert: ' + (result.studentName ? result.studentName : 'This student') + ' has already used the restroom twice during this half of the day.';
+              note.textContent = '⛔️ Alert: ' + (result.studentName ? result.studentName : 'This student') + ' has already used the restroom once during this half of the day.';
               note.style.color = 'red';
               spinner.style.display = 'none';
-              showCustomModal('This student has already used the restroom twice during this half of the day! Would you like to log this anyway?',
+              showCustomModal('This student has already used the restroom once during this half of the day! Would you like to log this anyway?',
                 function() { logUsage(action, true); },
                 function() {
                   // Reset the whole form, clear notification and spinner when user cancels
@@ -140,8 +140,8 @@
               var newCount = (typeof result.countAfter === 'number' ? result.countAfter : (typeof result.countBefore === 'number' ? result.countBefore + 1 : 1));
               note.textContent = '✅ ' + result.studentName + ' was added to the ' + result.logSheetName + ' log.';
               note.style.color = 'green';
-              // If the new total is 3 or more, show an additional warning
-              if (newCount >= 3) {
+              // If the new total is 2 or more, show an additional warning
+              if (newCount >= 2) {
                 note.textContent += '\n⚠️ Warning: ' + result.studentName + ' has now logged out ' + newCount + ' times this ' + result.logSheetName + ' today.';
                 note.style.color = 'orange';
               }
@@ -149,8 +149,8 @@
             } else {
               // Not appended (e.g., limit reached and not forced) — show informative message
               if (result && result.studentName && !result.appended) {
-                // If countBefore is already >=3, surface a stronger warning
-                if (result.countBefore >= 3) {
+                // If countBefore is already >=2, surface a stronger warning
+                if (result.countBefore >= 2) {
                   note.textContent = '⚠️ Alert: ' + result.studentName + ' has already logged out ' + result.countBefore + ' times this ' + result.logSheetName + '.';
                   note.style.color = 'red';
                 } else {
