@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 16px; }
+      .teacher-item { border: 1px solid #ccc; padding: 8px; margin: 4px 0; display: flex; align-items: center; }
+      .teacher-info { flex: 1; }
+      .teacher-actions { margin-left: 8px; }
+      .teacher-form { margin-top: 16px; padding: 12px; border: 1px solid #ddd; background: #f9f9f9; }
+      .form-row { margin: 8px 0; }
+      label { display: block; margin-bottom: 4px; font-weight: bold; }
+      input[type="text"], input[type="email"] { width: 100%; padding: 6px; box-sizing: border-box; }
+      button { margin: 4px; padding: 6px 12px; cursor: pointer; }
+      .edit-btn { background: #4CAF50; color: white; border: none; }
+      .delete-btn { background: #f44336; color: white; border: none; }
+      .save-btn { background: #2196F3; color: white; border: none; }
+      .cancel-btn { background: #9E9E9E; color: white; border: none; }
+      #notification { margin-top: 12px; padding: 8px; border-radius: 4px; }
+      .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+      .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+      .spinner {
+        display: none;
+        margin: 16px auto;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Manage Teachers</h2>
+    <p>Use this interface to add, edit, or remove teachers from the system.</p>
+
+    <div id="teacherList"></div>
+
+    <div class="teacher-form" id="addForm">
+      <h3>Add New Teacher</h3>
+      <div class="form-row">
+        <label for="newName">Name:</label>
+        <input type="text" id="newName" placeholder="e.g., Smith">
+      </div>
+      <div class="form-row">
+        <label for="newEmail">Email:</label>
+        <input type="email" id="newEmail" placeholder="e.g., john.smith@nisd.net">
+      </div>
+      <div class="form-row">
+        <label for="newSalutation">Salutation:</label>
+        <input type="text" id="newSalutation" placeholder="e.g., Mr.">
+      </div>
+      <button class="save-btn" onclick="addTeacher()">Add Teacher</button>
+    </div>
+
+    <div id="notification"></div>
+    <div id="spinner" class="spinner"></div>
+
+    <script>
+      var teachers = [];
+      var editingIndex = -1;
+
+      // Load teachers when page loads
+      window.onload = function() {
+        loadTeachers();
+      };
+
+      function loadTeachers() {
+        document.getElementById('spinner').style.display = 'block';
+        google.script.run
+          .withSuccessHandler(function(result) {
+            teachers = result;
+            renderTeacherList();
+            document.getElementById('spinner').style.display = 'none';
+          })
+          .withFailureHandler(function(err) {
+            showNotification('Error loading teachers: ' + err.message, 'error');
+            document.getElementById('spinner').style.display = 'none';
+          })
+          .getTeacherListForUI();
+      }
+
+      function renderTeacherList() {
+        var listDiv = document.getElementById('teacherList');
+        listDiv.innerHTML = '';
+
+        if (teachers.length === 0) {
+          listDiv.innerHTML = '<p>No teachers found.</p>';
+          return;
+        }
+
+        for (var i = 0; i < teachers.length; i++) {
+          var teacher = teachers[i];
+          var itemDiv = document.createElement('div');
+          itemDiv.className = 'teacher-item';
+          itemDiv.innerHTML = `
+            <div class="teacher-info">
+              <strong>${teacher.name}</strong><br>
+              Email: ${teacher.email}<br>
+              Salutation: ${teacher.salutation || '(none)'}
+            </div>
+            <div class="teacher-actions">
+              <button class="edit-btn" onclick="editTeacher(${i})">Edit</button>
+              <button class="delete-btn" onclick="deleteTeacher(${i})">Delete</button>
+            </div>
+          `;
+          listDiv.appendChild(itemDiv);
+        }
+      }
+
+      function addTeacher() {
+        var name = document.getElementById('newName').value.trim();
+        var email = document.getElementById('newEmail').value.trim();
+        var salutation = document.getElementById('newSalutation').value.trim();
+
+        if (!name || !email) {
+          showNotification('Name and email are required.', 'error');
+          return;
+        }
+
+        // Check for duplicate name
+        for (var i = 0; i < teachers.length; i++) {
+          if (teachers[i].name.toLowerCase() === name.toLowerCase()) {
+            showNotification('A teacher with this name already exists.', 'error');
+            return;
+          }
+        }
+
+        teachers.push({ name: name, email: email, salutation: salutation });
+        saveTeachers();
+        clearAddForm();
+      }
+
+      function editTeacher(index) {
+        editingIndex = index;
+        var teacher = teachers[index];
+
+        var formDiv = document.getElementById('addForm');
+        formDiv.innerHTML = `
+          <h3>Edit Teacher</h3>
+          <div class="form-row">
+            <label for="editName">Name:</label>
+            <input type="text" id="editName" value="${teacher.name}">
+          </div>
+          <div class="form-row">
+            <label for="editEmail">Email:</label>
+            <input type="email" id="editEmail" value="${teacher.email}">
+          </div>
+          <div class="form-row">
+            <label for="editSalutation">Salutation:</label>
+            <input type="text" id="editSalutation" value="${teacher.salutation || ''}">
+          </div>
+          <button class="save-btn" onclick="saveEdit()">Save Changes</button>
+          <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
+        `;
+      }
+
+      function saveEdit() {
+        var name = document.getElementById('editName').value.trim();
+        var email = document.getElementById('editEmail').value.trim();
+        var salutation = document.getElementById('editSalutation').value.trim();
+
+        if (!name || !email) {
+          showNotification('Name and email are required.', 'error');
+          return;
+        }
+
+        // Check for duplicate name (excluding current teacher)
+        for (var i = 0; i < teachers.length; i++) {
+          if (i !== editingIndex && teachers[i].name.toLowerCase() === name.toLowerCase()) {
+            showNotification('A teacher with this name already exists.', 'error');
+            return;
+          }
+        }
+
+        teachers[editingIndex] = { name: name, email: email, salutation: salutation };
+        saveTeachers();
+        cancelEdit();
+      }
+
+      function cancelEdit() {
+        editingIndex = -1;
+        var formDiv = document.getElementById('addForm');
+        formDiv.innerHTML = `
+          <h3>Add New Teacher</h3>
+          <div class="form-row">
+            <label for="newName">Name:</label>
+            <input type="text" id="newName" placeholder="e.g., Smith">
+          </div>
+          <div class="form-row">
+            <label for="newEmail">Email:</label>
+            <input type="email" id="newEmail" placeholder="e.g., john.smith@nisd.net">
+          </div>
+          <div class="form-row">
+            <label for="newSalutation">Salutation:</label>
+            <input type="text" id="newSalutation" placeholder="e.g., Mr.">
+          </div>
+          <button class="save-btn" onclick="addTeacher()">Add Teacher</button>
+        `;
+      }
+
+      function deleteTeacher(index) {
+        if (confirm('Are you sure you want to delete ' + teachers[index].name + '?')) {
+          teachers.splice(index, 1);
+          saveTeachers();
+        }
+      }
+
+      function saveTeachers() {
+        document.getElementById('spinner').style.display = 'block';
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message, 'success');
+              renderTeacherList();
+            } else {
+              showNotification('Error: ' + result.error, 'error');
+            }
+            document.getElementById('spinner').style.display = 'none';
+          })
+          .withFailureHandler(function(err) {
+            showNotification('Error saving teachers: ' + err.message, 'error');
+            document.getElementById('spinner').style.display = 'none';
+          })
+          .updateTeacherList(teachers);
+      }
+
+      function clearAddForm() {
+        document.getElementById('newName').value = '';
+        document.getElementById('newEmail').value = '';
+        document.getElementById('newSalutation').value = '';
+      }
+
+      function showNotification(message, type) {
+        var notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = type;
+        setTimeout(function() {
+          notification.textContent = '';
+          notification.className = '';
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>

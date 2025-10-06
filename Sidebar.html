@@ -6,6 +6,8 @@
       body { font-family: Arial, sans-serif; margin: 16px; }
       label { display: block; margin-top: 12px; }
       input, select, button { margin-top: 4px; width: 100%; padding: 6px; }
+      #outButton { background-color: blue; color: white; }
+      #backButton { background-color: green; color: white; }
   #notification { color: red; font-weight: bold; margin-top: 12px; transition: color 0.2s; }
         /* Spinner styles */
         .spinner {
@@ -53,44 +55,13 @@
       <label>Notes
         <textarea id="notes" rows="3" style="width:100%; padding:6px; margin-top:4px;" placeholder="Optional notes..."></textarea>
       </label>
-  <button type="button" onclick="logUsage('Out')">Out</button>
-  <button type="button" onclick="logUsage('Back')">Back</button>
+  <button type="button" id="outButton" onclick="logUsage('Out')">Out</button>
+  <button type="button" id="backButton" onclick="logUsage('Back')">Back</button>
     </form>
     <div id="notification"></div>
     <div id="spinner" class="spinner"></div>
-    <div id="customModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:1000; align-items:center; justify-content:center;">
-      <div style="background:#fff; padding:24px 20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.2); max-width:320px; margin:auto; text-align:center;">
-        <h3 style="margin-top:0;">Confirmation</h3>
-        <div id="modalMessage" style="margin-bottom:18px;"></div>
-        <button id="modalYes" style="background:#388e3c; color:#fff; border:none; padding:8px 18px; border-radius:4px; margin-right:10px;">Yes</button>
-        <button id="modalNo" style="background:#b71c1c; color:#fff; border:none; padding:8px 18px; border-radius:4px;">No</button>
-      </div>
-    </div>
-
     <!-- Inline help modal removed; Help remains available via the spreadsheet menu (Help.html) -->
     <script>
-  /**
-   * Show a custom confirmation modal.
-   * @param {string} message - Message to display inside the modal.
-   * @param {Function} [onYes] - Callback executed when the user confirms.
-   * @param {Function} [onNo] - Callback executed when the user cancels.
-   * @return {void}
-   */
-  function showCustomModal(message, onYes, onNo) {
-        var modal = document.getElementById('customModal');
-        var msg = document.getElementById('modalMessage');
-        msg.textContent = message;
-        modal.style.display = 'flex';
-        document.getElementById('modalYes').onclick = function() {
-          modal.style.display = 'none';
-          if (onYes) onYes();
-        };
-        document.getElementById('modalNo').onclick = function() {
-          modal.style.display = 'none';
-          if (onNo) onNo();
-        };
-      }
-
   /**
    * Submit a restroom usage event to the server-side Apps Script function `logRestroomUsage`.
    * Reads values from the form (`studentId`, `gb`, `period`) and updates UI elements
@@ -118,21 +89,17 @@
             note.textContent = result.error;
             note.style.color = 'red';
           } else if (action === 'Out') {
-            // If the server requires a confirmation (this would be the 2nd Out), show the modal and do not append yet
+            // If the server requires a confirmation (this would be the 2nd Out), deny access and do not append
             if (result && result.confirmationNeeded && !forceLog) {
-              note.textContent = '⛔️ Alert: ' + (result.studentName ? result.studentName : 'This student') + ' has already used the restroom once during this half of the day.';
+              note.textContent = '⛔️ Do not allow access: ' + (result.studentName ? result.studentName : 'This student') + ' has already used the restroom once during this half of the day. Call admin if emergency.';
               note.style.color = 'red';
               spinner.style.display = 'none';
-              showCustomModal('This student has already used the restroom once during this half of the day! Would you like to log this anyway?',
-                function() { logUsage(action, true); },
-                function() {
-                  // Reset the whole form, clear notification and spinner when user cancels
-                  try { document.getElementById('restroomForm').reset(); } catch (e) {}
-                  note.textContent = '';
-                  spinner.style.display = 'none';
-                  // Return focus to the Student ID field for quick retry
-                  try { document.getElementById('studentId').focus(); } catch (e) {}
-                });
+              // Reset the form
+              try { document.getElementById('restroomForm').reset(); } catch (e) {}
+              // Return focus to the Student ID field
+              try { document.getElementById('studentId').focus(); } catch (e) {}
+              // Clear the notification after 10 seconds
+              setTimeout(function() { note.textContent = ''; }, 10000);
               return;
             }
             // If server appended the row (either normally or via force), show success

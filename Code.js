@@ -11,7 +11,7 @@
  * - Archive logs into a central database for record-keeping.
  * - Provide a user-friendly sidebar interface for teachers to log entries.
  * - Ensure data integrity by validating student IDs against a daily tracking list.
- * - Notify teachers when a student has exceeded a predefined number of restroom visits (1 time in AM or PM).
+ * - Notify teachers when a student attempts a second restroom visit in the same half-day (AM or PM).
  * - Customizable teacher identification based on email.
  * - Error handling and logging for debugging and maintenance.
  * - Menu integration within Google Sheets for easy access to functionalities (log students and archive data).
@@ -20,7 +20,7 @@
  * - Timezone-aware date and time handling.
  * 
  * @author Alvaro Gomez, Academic Technology Coach, 210-397-9408
- * @version 1.0.1, 2025-10-06
+ * @version 1.0.2, 2025-10-06
  */
 
 
@@ -76,6 +76,8 @@ function archiveAndClearLogs() {
 /**
  * Diagnostic helper you can run from the Apps Script editor.
  * It logs sheet names, visibility, detected day sheet, and a sample of student IDs.
+ *
+ * @return {{sheets: Array<{name:string,hidden:boolean}>, daySheet: ?string, sampleIds?: Array, error?: string}}
  */
 function diagnoseSheets() {
   try {
@@ -136,17 +138,17 @@ function diagnoseSheets() {
 }
 
 /**
- * Inspect the spreadsheet and return metadata useful for debugging.
- * It finds visible sheets, detects a candidate "day sheet" (the first visible sheet that is not AM/PM),
- * and returns a short sample of student IDs from column E starting at row 3 when available.
+ * Adds a custom menu to the Google Sheets UI when the spreadsheet is opened.
+ * This enables access to the sidebar, archiving, teacher management, and help functionalities.
  *
- * @return {{sheets: Array<{name:string,hidden:boolean}>, daySheet: ?string, sampleIds?: Array, error?: string}}
+ * @return {void}
  */
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu("Restroom Log")
+    .createMenu("🚽 Restroom Log")
     .addItem("Log Students", "showSidebar")
     .addItem("Move current AM/PM logs to Database", "archiveAndClearLogs")
+    .addItem("Manage Teachers", "showTeacherManagementDialog")
     .addItem("Help", "showHelpDialog")
     .addToUi();
 }
@@ -162,8 +164,166 @@ function showHelpDialog() {
 }
 
 /**
- * Adds a custom menu to the Google Sheets UI when the spreadsheet is opened.
- * This enables the sidebar and a manual archive action.
+ * Show a modal dialog for managing teachers using the TeacherManagement.html file.
+ */
+function showTeacherManagementDialog() {
+  var html = HtmlService.createHtmlOutputFromFile('TeacherManagement')
+    .setWidth(600)
+    .setHeight(500);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Manage Teachers');
+}
+
+/**
+ * Creates or updates the Teachers sheet with the current teacher data.
+ * This function should be run once to initialize the Teachers sheet.
+ */
+function createTeachersSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var teachersSheet = ss.getSheetByName("Teachers");
+  if (!teachersSheet) {
+    teachersSheet = ss.insertSheet("Teachers");
+    teachersSheet.appendRow(["Name", "Email", "Salutation"]);
+  }
+  
+  // Current teacher data
+  var teacherData = [
+    ["Aguilar", "russell.aguilar@nisd.net", "Mr. "],
+    ["Atoui", "atlanta.atoui@nisd.net", "Mrs."],
+    ["Bowery", "melissa.bowery@nisd.net", "Mrs. "],
+    ["Cantu", "sandy.cantu@nisd.net", "Mrs. "],
+    ["Casanova", "henry.casanova@nisd.net", "Mr. "],
+    ["Coyle", "deborah.coyle@nisd.net", "Mrs. "],
+    ["De Leon", "ulices.deleon@nisd.net", "Mr. "],
+    ["Farias", "michelle.farias@nisd.net", "Mrs. "],
+    ["Franco", "george.franco01@nisd.net", "Mr."],
+    ["Garcia", "danny.garcia@nisd.net", "Mr. "],
+    ["Goff", "steven.goff@nisd.net", "Mr. "],
+    ["Gomez", "alvaro.gomez@nisd.net", "Mr."],
+    ["Gonzales", "zina.gonzales@nisd.net", "Dr."],
+    ["Hernandez", "david.hernandez@nisd.net", "Mr. "],
+    ["Hutton", "rebekah.hutton@nisd.net", "Mrs. "],
+    ["Idrogo", "valerie.idrogo@nisd.net", "Mrs. "],
+    ["Jasso", "nadia.jasso@nisd.net", "Mrs. "],
+    ["Marquez", "monica.marquez@nisd.net", "Mrs. "],
+    ["Ollendieck", "reggie.ollendieck@nisd.net", "Mr. "],
+    ["Paez", "john.paez@nisd.net", "Mr. "],
+    ["Ramon", "israel.ramon@nisd.net", "Mr. "],
+    ["Tellez", "lisa.tellez@nisd.net", "Mrs. "],
+    ["Trevino", "marcos.trevino@nisd.net", "Mr. "],
+    ["Wine", "stephanie.wine@nisd.net", "Mrs. "],
+    ["Yeager", "sheila.yeager@nisd.net", "Mrs. "]
+  ];
+  
+  // Clear existing data except header
+  if (teachersSheet.getLastRow() > 1) {
+    teachersSheet.getRange(2, 1, teachersSheet.getLastRow() - 1, 3).clearContent();
+  }
+  
+  // Append the data
+  if (teacherData.length > 0) {
+    teachersSheet.getRange(2, 1, teacherData.length, 3).setValues(teacherData);
+  }
+  
+  Logger.log("Teachers sheet created/updated with %s teachers", teacherData.length);
+}
+
+/**
+ * Gets the teacher list from the Teachers sheet.
+ * Returns an object with teacher names as keys and {Email, Salutation} as values.
+ * @return {Object} Teacher email list object
+ */
+function getTeacherList() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var teachersSheet = ss.getSheetByName("Teachers");
+  if (!teachersSheet) {
+    Logger.log("Teachers sheet not found, returning empty object");
+    return {};
+  }
+  
+  var data = teachersSheet.getDataRange().getValues();
+  var teacherList = {};
+  
+  // Skip header row (index 0)
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (row[0] && row[1]) { // Name and Email are required
+      teacherList[row[0]] = {
+        Email: row[1],
+        Salutation: row[2] || ""
+      };
+    }
+  }
+  
+  return teacherList;
+}
+
+/**
+ * Gets the teacher list in array format for the UI.
+ * Returns an array of teacher objects with name, email, and salutation.
+ * @return {Array} Array of teacher objects
+ */
+function getTeacherListForUI() {
+  var teacherList = getTeacherList();
+  var teachers = [];
+  
+  for (var name in teacherList) {
+    teachers.push({
+      name: name,
+      email: teacherList[name].Email,
+      salutation: teacherList[name].Salutation
+    });
+  }
+  
+  // Sort by name
+  teachers.sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  });
+  
+  return teachers;
+}
+
+/**
+ * Updates the teacher list in the Teachers sheet.
+ * @param {Array} teachers - Array of teacher objects with name, email, salutation
+ * @return {Object} Result object with success or error
+ */
+function updateTeacherList(teachers) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var teachersSheet = ss.getSheetByName("Teachers");
+    if (!teachersSheet) {
+      teachersSheet = ss.insertSheet("Teachers");
+      teachersSheet.appendRow(["Name", "Email", "Salutation"]);
+    }
+    
+    // Clear existing data except header
+    if (teachersSheet.getLastRow() > 1) {
+      teachersSheet.getRange(2, 1, teachersSheet.getLastRow() - 1, 3).clearContent();
+    }
+    
+    // Prepare data for writing
+    var data = [];
+    for (var i = 0; i < teachers.length; i++) {
+      var teacher = teachers[i];
+      if (teacher.name && teacher.email) {
+        data.push([teacher.name, teacher.email, teacher.salutation || ""]);
+      }
+    }
+    
+    // Write the data
+    if (data.length > 0) {
+      teachersSheet.getRange(2, 1, data.length, 3).setValues(data);
+    }
+    
+    return { success: true, message: "Teacher list updated successfully" };
+  } catch (e) {
+    Logger.log("Error updating teacher list: " + e.toString());
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * Shows the restroom logging sidebar in the Google Sheets UI.
  * @return {void}
  */
 function showSidebar() {
@@ -220,33 +380,7 @@ function logRestroomUsage(data) {
 
     // Teacher email and name mapping
     var email = Session.getActiveUser().getEmail();
-    var teacherEmailList = {
-      Aguilar: { Email: "russell.aguilar@nisd.net", Salutation: "Mr. " },
-      Atoui: { Email: "atlanta.atoui@nisd.net", Salutation: "Mrs." },
-      Bowery: { Email: "melissa.bowery@nisd.net", Salutation: "Mrs. " },
-      Cantu: { Email: "sandy.cantu@nisd.net", Salutation: "Mrs. " },
-      Casanova: { Email: "henry.casanova@nisd.net", Salutation: "Mr. " },
-      Coyle: { Email: "deborah.coyle@nisd.net", Salutation: "Mrs. " },
-      "De Leon": { Email: "ulices.deleon@nisd.net", Salutation: "Mr. " },
-      Farias: { Email: "michelle.farias@nisd.net", Salutation: "Mrs. " },
-      Franco: { Email: "george.franco01@nisd.net", Salutation: "Mr." },
-      Garcia: { Email: "danny.garcia@nisd.net", Salutation: "Mr. " },
-      Goff: { Email: "steven.goff@nisd.net", Salutation: "Mr. " },
-      Gomez: { Email: "alvaro.gomez@nisd.net", Salutation: "Mr." },
-      Gonzales: { Email: "zina.gonzales@nisd.net", Salutation: "Dr." },
-      Hernandez: { Email: "david.hernandez@nisd.net", Salutation: "Mr. " },
-      Hutton: { Email: "rebekah.hutton@nisd.net", Salutation: "Mrs. " },
-      Idrogo: { Email: "valerie.idrogo@nisd.net", Salutation: "Mrs. " },
-      Jasso: { Email: "nadia.jasso@nisd.net", Salutation: "Mrs. " },
-      Marquez: { Email: "monica.marquez@nisd.net", Salutation: "Mrs. " },
-      Ollendieck: { Email: "reggie.ollendieck@nisd.net", Salutation: "Mr. " },
-      Paez: { Email: "john.paez@nisd.net", Salutation: "Mr. " },
-      Ramon: { Email: "israel.ramon@nisd.net", Salutation: "Mr. " },
-      Tellez: { Email: "lisa.tellez@nisd.net", Salutation: "Mrs. " },
-      Trevino: { Email: "marcos.trevino@nisd.net", Salutation: "Mr. " },
-      Wine: { Email: "stephanie.wine@nisd.net", Salutation: "Mrs. " },
-      Yeager: { Email: "sheila.yeager@nisd.net", Salutation: "Mrs. " },
-    };
+    var teacherEmailList = getTeacherList();
     var teacherName = email;
     for (var key in teacherEmailList) {
       if (teacherEmailList[key].Email.toLowerCase() === email.toLowerCase()) {
@@ -406,18 +540,16 @@ function logRestroomUsage(data) {
   var updatedRow = null;
   var fallbackAttempted = false;
     if (action === "Out") {
-      // If this would be the 2nd Out (countBefore >= 1) and the client didn't force it,
-      // require confirmation and DO NOT append on the server side.
-      if (countBefore >= 1 && !forceLog) {
+      // If this would be the 2nd Out (countBefore >= 1), deny access
+      if (countBefore >= 1) {
         confirmationNeeded = true;
         appended = false;
         Logger.log(
-          "Confirmation needed for Out: student=%s countBefore=%s",
+          "Access denied for Out: student=%s countBefore=%s",
           studentName,
           countBefore
         );
       } else {
-        // Only append if under limit or forced
         // Period may be provided in data.period; default to empty string
         var periodValue = (data.period || "").toString();
         var notesValue = (data.notes || "").toString();
